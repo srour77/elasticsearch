@@ -1,0 +1,29 @@
+{
+  "name": "email-client",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "nodemon server.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@elastic/elasticsearch": "^8.13.1",
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "oauth": "^0.10.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/elasticsearch": "^5.0.43",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.14.1",
+    "@types/uuid": "^9.0.8",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}
