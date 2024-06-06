@@ -1,12 +1,14 @@
 export type User = {
     id: string;
+    userName: string;
     linkedAccounts: LinkedAccount[];
 }
   
 export type LinkedAccount = {
+    subId: string;
     platform: string;
-    secret: string;
-    address: string;
+    accessToken: string;
+    emailAddress: string;
     messages: Message[];
     mailbox: MailBox;
 }

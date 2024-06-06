@@ -1,4 +1,4 @@
-import { MailBox, Message, User } from "../types/types"
+import { LinkedAccount, MailBox, Message, User } from "../types/models"
 import IDataStore from "./IDataStore"
 import { Client } from '@elastic/elasticsearch'
 
@@ -7,7 +7,7 @@ class ElasticSearchDataStore implements IDataStore {
 
     constructor() {
         this.client = new Client({ node: process.env.ELASTIC_URL })
-        // this.client.indices.delete({index: 'users'}).then((response) => {console.log('index deleted')})
+        this.client.indices.delete({index: 'users'}).then((response) => {console.log('index deleted')})
         this.client.indices.exists({index: 'users'}).then((response) => {
             if(!response) {
                 this.client.indices.create({
@@ -16,6 +16,7 @@ class ElasticSearchDataStore implements IDataStore {
                         mappings: {
                         properties: {
                             id: { type: 'text' },
+                            userName: { type: 'text' },
                             linkedAccounts: {
                             type: 'nested',
                             properties: {
@@ -48,13 +49,19 @@ class ElasticSearchDataStore implements IDataStore {
         })
     }
 
-    async createUser(user: User): Promise<void> {
-        await this.client.index<User>({ index: 'users', document: user });
+    async createUser(user: Pick<User, 'id' | 'userName'>): Promise<void> {
+        await this.client.index({ index: 'users', document: user })
     }
 
     async getUserById(userId: string): Promise<Pick<User, 'id'>> {
         const response = await this.client.search({ index: 'users', body: { query: { match: { id: userId } } } })
         const user = response?.hits?.hits?.[0]?._source as Pick<User, 'id'>
+        return user
+    }
+
+    async getUserByUserName(userName: string): Promise<Pick<User, 'id' | 'userName'>> {
+        const response = await this.client.search({index: 'users', body: {query: {match: { userName }}}})
+        const user = response?.hits?.hits?.[0]?._source as Pick<User, 'id' | 'userName'>
         return user
     }
 
@@ -65,29 +72,36 @@ class ElasticSearchDataStore implements IDataStore {
     }
 
     async accountExists(subId: string): Promise<boolean> {
-        const response = await this.client.count({
-            index: 'users',
-            body: {
-              query: {
-                nested: {
-                  path: 'linkedAccounts',
-                  query: {
-                    bool: {
-                      must: [
-                        {
-                          match: {
-                            'linkedAccounts.subId': subId
-                          }
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-        })
+        const response = await this.client.count({index: 'users',body: {query: {nested: {path: 'linkedAccounts',query: {bool: {must: [{match: {'linkedAccounts.subId': subId}}]}}}}}})
         
         return response.count == 0 ? false : true
+    }
+
+    async updateLinkedAccount(userName: string, linkedAccount: Pick<LinkedAccount, 'platform' | 'accessToken' | 'emailAddress' | 'subId'>): Promise<void> {
+        const updateQuery = {
+            script: {
+                source: `
+                    if (ctx._source.linkedAccounts == null) {
+                        ctx._source.linkedAccounts = [params.linkedAccount];
+                    } else {
+                        def accountIndex = -1;
+                        for (int i = 0; i < ctx._source.linkedAccounts.size(); i++) {
+                            if (ctx._source.linkedAccounts[i].subId == params.linkedAccount.subId) {
+                                accountIndex = i;
+                                break;
+                            }
+                        }
+                        if (accountIndex >= 0) {
+                            ctx._source.linkedAccounts[accountIndex] = params.linkedAccount;
+                        } else {
+                            ctx._source.linkedAccounts.add(params.linkedAccount);
+                        }
+                    }
+                `,lang: 'painless',params: {linkedAccount: linkedAccount}
+            }, query: {match: {userName: userName}}
+        };
+
+        await this.client.updateByQuery({index: 'users', body: updateQuery});
     }
 
     async syncUserMessages(userId: string, platform: string, data: Message[]): Promise<void> {
