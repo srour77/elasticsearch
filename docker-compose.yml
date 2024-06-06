@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - ELASTIC_URL='http://localhost:9200'
+      - CALLBACK_URI='http://localhost:3000/auth/callback'
+      - OUTLOOK_CLIENT_ID='2d1a813e-9d8c-4000-8400-9113657fcc0d'
+      - OUTLOOK_CLIENT_SECRET='r7T8Q~KgRCqF5FH3Khh_C9ejc2DQ4Zhb40LQ2bGc'
+      - OUTLOOK_AUTH_URL='https://login.microsoftonline.com/common/oauth2/v2.0/authorize'
+      - OUTLOOK_TOKEN_URL='https://login.microsoftonline.com/common/oauth2/v2.0/token'
+    depends_on:
+      - elasticsearch
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.10.1
+    environment:
+      - discovery.type=single-node
+    ports:
+      - "9200:9200"
+      - "9300:9300"
